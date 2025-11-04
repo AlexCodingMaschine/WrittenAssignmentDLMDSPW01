@@ -41,10 +41,37 @@ print('First 5 rows from the database:')
 print(df_db.head())
 
 
-# Debug: print DataFrame info before plotting: Checked for data type
-#print(df.dtypes)
-#print(df.isna().sum())
 
+# ------------------------------------------------------------------
+# To load the ideal table into TABLE2 we will do a for loop, we could
+# also do it manually but it would look pretty bad
+# ------------------------------------------------------------------
+
+ideal_path = 'Datasets/ideal.csv' 
+df_ideal = pd.read_csv(ideal_path, header=None, skiprows=1)
+
+# build column names: X, Y1..Yn (auto-detect number of function columns)
+num_funcs = df_ideal.shape[1] - 1
+#df_ideal.shape is a tuple with the number of rows and columns and for the Y Columns we just need 50 (we also just could hardcode it)
+
+
+
+
+cols = ['X'] + [f'Y{i}' for i in range(1, num_funcs + 1)]
+df_ideal.columns = cols
+
+# convert all to numeric, basicly we are doing this for bokeh
+for c in cols:
+    df_ideal[c] = pd.to_numeric(df_ideal[c], errors='coerce')
+
+# write to the DATABASE
+df_ideal.to_sql('Table2', con=engine, if_exists='replace', index=False)
+
+# show first 5 rows from the database just for testing
+df_ideal_db = pd.read_sql('SELECT * FROM Table2', con=engine)
+print('\nFirst 5 rows from the Table2 table:')
+print(df_ideal_db.head())
+#head() = head(5) -> Shows the first 5 rows of the database 
 
 
 
