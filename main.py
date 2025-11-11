@@ -110,6 +110,7 @@ def select_top4_ideals(db_path='database.db',
 		print(f'  {name}: {sse}')
 
 	return top4
+	#At this point we accomplished the "fist" part of the task
 
 
 def main():
@@ -124,112 +125,157 @@ def main():
 	print('\nPipeline complete: Table3 written to database.db')
 
 
-
-def compute_Mj_for_ideals(db_path='database.db', table_train='Table1', table_ideal='Table2', ideal_names=None):
+#We will call this function in main and give it the following parameters 
+#We will calcualte the max. deviation for each ideal function with the training data
+def compute_deviation_for_ideals(db_path='database.db', table_train='Table1', table_ideal='Table2', ideal_names=None):
 	
 	engine = create_engine(f'sqlite:///{db_path}')
 	df_train = pd.read_sql(f'SELECT * FROM {table_train}', con=engine)
 	df_ideal = pd.read_sql(f'SELECT * FROM {table_ideal}', con=engine)
+	#Here we connect to database and also load the tables
 
+	#X-Columns from train
 	x_train = df_train.iloc[:, 0].values
+	#Y-Columns from train
 	train_value_cols = list(df_train.columns[1:])
 
+	#Again sorting ideal X-values for the following interpolation
 	x_ideal = df_ideal.iloc[:, 0].values
 	sort_idx = np.argsort(x_ideal)
 	x_ideal_sorted = x_ideal[sort_idx]
 
+	#Here we will store the results for each ideal (the deviation)
 	M = {}
+	
+	#For that we need to loop through each ideal
 	for name in ideal_names:
 		y_ideal = df_ideal[name].values[sort_idx]
+
+		#Interpolation of ideal and training X-Values  
+		#For better understanding:
+		#Estimate what the ideal function’s Y-values would be
+		#at the same X positions as the training data.
+		# = compare them at the same X positions
 		y_at_train = np.interp(x_train, x_ideal_sorted, y_ideal, left=np.nan, right=np.nan)
+		
+
+		#The diffrences between the ideal function and the training data
 		abs_res = []
+		#loop through each training Y-Column
 		for tcol in train_value_cols:
+
+			#extract the training Y-values for this column
 			y_train = df_train[tcol].values
+
+			#Thats a "Security-Check" to only compare numeric data points
 			mask = (~np.isnan(y_at_train)) & (~np.isnan(y_train))
+
 			if mask.any():
+				#Here we compute the absolute differences
 				res = np.abs(y_train[mask] - y_at_train[mask])
+				#print (res) = test
+
+				#Store them in abs_res
 				abs_res.append(res)
+
 		if len(abs_res) == 0:
+			#No data there = NaN
 			M[name] = np.nan
 		else:
+			# Find the maximum deviation and store it in M
 			M[name] = float(np.max(np.concatenate(abs_res)))
+
+
 	return M
 
 
+# The final function that matches the test data to the ideal functions and writes Table3
+# Load test data, compare EACH test point to EACH ideal function, find which ideal fits best
+# Check the acceptance crtierion, write results to Table3
 def match_test_to_table3(ideal_names, db_path='database.db', table_ideal='Table2', test_csv='Datasets/test.csv', out_table='Table3', multiplier=math.sqrt(2)):
 	
+	#Again connect to database
 	engine = create_engine(f'sqlite:///{db_path}')
-	# load data
+	
+	
+	# Read ideal table and test data
 	df_ideal = pd.read_sql(f'SELECT * FROM {table_ideal}', con=engine)
 	df_test = pd.read_csv(test_csv)
-	# normalize test columns
+
+
+	# normalize test columns, that means that we rename them to X and Y (like in the assignment)
+	# and convert them to numeric values
 	if 'x' in df_test.columns:
 		df_test = df_test.rename(columns={'x': 'X', 'y': 'Y'})
 	else:
 		df_test.columns = ['X', 'Y']
-	df_test['X'] = pd.to_numeric(df_test['X'], errors='coerce')
-	df_test['Y'] = pd.to_numeric(df_test['Y'], errors='coerce')
+	df_test['X'] = pd.to_numeric(df_test['X'], errors='coerce') #df_test['X'] → numeric X values
+	df_test['Y'] = pd.to_numeric(df_test['Y'], errors='coerce') #df_test['Y'] → numeric Y values
 
-	# prepare ideal interpolation
+	# Just like before we sort the x-Values of ideal for interpolation
 	x_ideal = df_ideal.iloc[:, 0].values
 	sort_idx = np.argsort(x_ideal)
 	x_ideal_sorted = x_ideal[sort_idx]
 
-	# compute M_j from training
-	M = compute_Mj_for_ideals(db_path=db_path, table_train='Table1', table_ideal=table_ideal, ideal_names=ideal_names)
+	# Compute the maximum allowed deviation (with the function defined before)
+	M = compute_deviation_for_ideals(db_path=db_path, table_train='Table1', table_ideal=table_ideal, ideal_names=ideal_names)
 
-	# compute deviations to each ideal
+	# The following part is the core calculation
 	x_test = df_test['X'].values
 	dev_cols = []
 	for name in ideal_names:
 		y_ideal = df_ideal[name].values[sort_idx]
-		y_pred = np.interp(x_test, x_ideal_sorted, y_ideal, left=np.nan, right=np.nan)
-		dev = np.abs(df_test['Y'].values - y_pred)
+		y_pred = np.interp(x_test, x_ideal_sorted, y_ideal, left=np.nan, right=np.nan) # interpolate the ideal Y values at each test X value
+		dev = np.abs(df_test['Y'].values - y_pred) #Compute the absolute deviation from the actual test Y value
+		#Create new columns
 		colname = f'Dev_{name}'
 		df_test[colname] = dev
-		dev_cols.append(colname)
+		dev_cols.append(colname) #Store those deviations in new columns
 
 	# choose best and apply acceptance
 	chosen = []
 	delta = []
-	for i, row in df_test.iterrows():
-		devs = row[dev_cols].values
-		mask = ~np.isnan(devs)
+	for i, row in df_test.iterrows(): #loop each row in the test data
+		devs = row[dev_cols].values	#extract all deviation values from the row for each ideal
+		mask = ~np.isnan(devs) #again a mask and check to see if there are any valid values 
 		if not mask.any():
-			chosen.append(None)
-			delta.append(np.nan)
-			continue
-		true_idxs = np.where(mask)[0]
-		best_rel_idx = int(np.argmin(devs[mask]))
-		chosen_idx = true_idxs[best_rel_idx]
-		best_name = ideal_names[chosen_idx]
-		best_dev = float(devs[chosen_idx])
-		Mj = M.get(best_name, np.nan)
-		if np.isnan(Mj):
+			chosen.append(None) #nothing fits
+			delta.append(np.nan) #no deviation
+			continue #skip to next row
+		true_idxs = np.where(mask)[0] #get the INDEZES of valid deviations
+		best_rel_idx = int(np.argmin(devs[mask])) #Find smallest deviation (= our best fit)
+		chosen_idx = true_idxs[best_rel_idx] #translate to original index (only needed if some were NaN)
+		best_name = ideal_names[chosen_idx] #Find the name of the ideal function corresponding to that smallest deviation
+		best_dev = float(devs[chosen_idx])#Get the actual deviation value (delta Y)
+		deviation = M.get(best_name, np.nan) #Here we are getting the max. allowed deviation for that ideal function as the acceptance criterion
+		if np.isnan(deviation): #we skip if there is no valid deviation
 			chosen.append(None)
 			delta.append(np.nan)
 		else:
-			threshold = multiplier * Mj
-			if best_dev <= threshold:
-				chosen.append(best_name)
-				delta.append(best_dev)
+			threshold = multiplier * deviation #compute max. allowed deviation for acceptance
+			if best_dev <= threshold: #check if the actual deviation is smaller than the allowed one
+				chosen.append(best_name) #store the name of the ideal function
+				delta.append(best_dev) #store the actual deviation value
 			else:
-				chosen.append(None)
-				delta.append(np.nan)
+				chosen.append(None) #no ideal function accepted
+				delta.append(np.nan) #no deviation
 
+	#Create DataFrame with the output columns (Table3)
 	df_out = pd.DataFrame({'X': df_test['X'], 'Y': df_test['Y'], 'DeltaY': delta, 'IdealName': chosen})
 
-	# write to DB
+	# write that to the database
 	df_out.to_sql(out_table, con=engine, if_exists='replace', index=False)
 
 	# print summary
-	total = len(df_out)
-	assigned = df_out['IdealName'].notnull().sum()
-	unassigned = total - assigned
-	print(f'Wrote {len(df_out)} rows to {out_table} (assigned: {assigned}, unassigned: {unassigned})')
+	total = len(df_out) #count total rows (test points)
+	assigned = df_out['IdealName'].notnull().sum() #and count how many where assigned to an ideal function
+	unassigned = total - assigned #unassigned = total - assigned
+
+	#Print the summary with context
+	print(f'Wrote {len(df_out)} rows to {out_table} (assigned: {assigned}, unassigned: {unassigned})') 
 	print('\nPer-ideal assignment counts:')
 	print(df_out['IdealName'].value_counts(dropna=True))
 
 
-if __name__ == '__main__':
+if __name__ == '__main__': #this is the standard entry point of the program
 	main()
