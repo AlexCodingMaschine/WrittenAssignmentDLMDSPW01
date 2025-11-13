@@ -83,9 +83,9 @@ def make_confirm_plot(df_train, df_ideal, chosen_names, df_test=None):
         for ideal in chosen_names:
             df_subset = df_test[df_test['IdealName'] == ideal]
             if not df_subset.empty:
-                p.circle(df_subset['X'], df_subset['Y'],
-                         size=6, color=color_map.get(ideal, 'black'),
-                         alpha=0.8, legend_label=f'Test -> {ideal}')
+                p.scatter(df_subset['X'], df_subset['Y'],
+                          size=6, color=color_map.get(ideal, 'black'),
+                          alpha=0.8, legend_label=f'Test -> {ideal}')
 
         # Unassigned points (None)
         df_none = df_test[df_test['IdealName'].isna()]
