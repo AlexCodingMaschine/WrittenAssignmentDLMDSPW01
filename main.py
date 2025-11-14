@@ -1,8 +1,8 @@
-# This program is for the main part of the task
-# Uses the databases created by `database.py`.
-# Step 1 (implemented here): find the best 4 ideal functions that fit the
-# entire training set (aggregate SSE). The chosen four are saved to the DB
-# in table `ChosenIdeals` and to `chosen_ideals.csv` for easy inspection.
+""" This program is for the main part of the task
+ Uses the databases created by `database.py`.
+ Step 1 (implemented here): find the best 4 ideal functions that fit the
+ entire training set (aggregate SSE). The chosen four are saved to the DB
+ in table `ChosenIdeals` and to `chosen_ideals.csv` for easy inspection."""
 
 import numpy as np	#numerical computations
 import pandas as pd	#reading/writing tables

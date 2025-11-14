@@ -1,7 +1,6 @@
-#This program is for the first part of the task
-#To load the csv files into the databases
+"""This program is for the first part of the task
+to create the database and load the csv files into it"""
 
-from bokeh.plotting import figure, show, output_file
 import pandas as pd
 from sqlalchemy import create_engine, Column, Float, MetaData, Table
 
@@ -42,10 +41,8 @@ print(df_db.head())
 
 
 
-# ------------------------------------------------------------------
-# To load the ideal table into TABLE2 we will do a for loop, we could
-# also do it manually but it would look pretty bad
-# ------------------------------------------------------------------
+"""To load the ideal table into TABLE2 we will do a for loop, we could
+also do it manually but it would look pretty bad"""
 
 ideal_path = 'Datasets/ideal.csv' 
 df_ideal = pd.read_csv(ideal_path, header=None, skiprows=1)
@@ -71,23 +68,8 @@ df_ideal.to_sql('Table2', con=engine, if_exists='replace', index=False)
 df_ideal_db = pd.read_sql('SELECT * FROM Table2', con=engine)
 print('\nFirst 5 rows from the Table2 table:')
 print(df_ideal_db.head())
-#head() = head(5) -> Shows the first 5 rows of the database 
+#head() = head(5) -> Shows the first 5 rows of the database
 
-
-
-
-
-
-#HERE STARTS THE VISUALIZATION PART
-
-# Output to static HTML file
-output_file("bokeh_plot.html")
-
-# Create a new plot with a title and axis labels
-p = figure(title="X vs Y1", x_axis_label='X', y_axis_label='Y1')
-
-# Add a line renderer with legend and line thickness
-p.line(df['X'], df['Y1'], legend_label="Y1", line_width=2)
-
-# Show the results
-show(p)
+""" We will create Table3 in the main program, because here we load raw data
+from the CSV and I dont want to mix too much logic in this file 
+and we also cant just fill Table3 because we compute it from Table1 and Table2 """

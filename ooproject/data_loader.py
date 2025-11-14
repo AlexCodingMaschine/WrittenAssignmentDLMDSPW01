@@ -9,8 +9,12 @@ as well as loading test data from a CSV file. We also do some caching."""
 class DataLoader:
     def __init__(self, db_client: Optional[DBClient] = None, db_path: str = 'database.db'):
         #  If no database client is given, create one using the given database path
-        self.db_client = db_client or DBClient(db_path)
-        self.db_path = db_path  #store the database path
+        if db_client is not None:
+            self.db_client = db_client
+            self.db_path = db_client.db_path  # Use the path from the provided client
+        else:
+            self.db_client = DBClient(db_path)
+            self.db_path = db_path  # Use the provided path
 
         # Create empty placeholders for data (will be filled later)
         self.train_df: Optional[pd.DataFrame] = None #training data table
@@ -24,21 +28,43 @@ class DataLoader:
 
     def load_from_db(self, table_train: str = 'Table1', table_ideal: str = 'Table2') -> None:
         """Load training and ideal tables from DB and prepare cached arrays"""
+        from .exceptions import DataLoadError, ValidationError
 
-        #Read training table from database
-        self.train_df = self.db_client.read_table(table_train)
-        #Read ideal table from database
-        self.ideal_df = self.db_client.read_table(table_ideal)
+        try:
+            #Read training table from database
+            self.train_df = self.db_client.read_table(table_train)
+            #Read ideal table from database
+            self.ideal_df = self.db_client.read_table(table_ideal)
+        except Exception as e:
+            raise DataLoadError(f"Failed to load tables from database: {e}")
 
-        # Create empty placeholders for arrays (will be also filled later)
-        self.x_train = self.train_df.iloc[:, 0].values # Get the first column (X values) from training data
-        x_ideal = self.ideal_df.iloc[:, 0].values # Get the first column (X values) from ideal data
-        self.ideal_sort_idx = np.argsort(x_ideal) #  Sort the ideal X values and store the sort order (indices)
-        self.x_ideal_sorted = x_ideal[self.ideal_sort_idx] # Store the sorted ideal X values
+        # Validate tables have data
+        if self.train_df.empty or self.ideal_df.empty:
+            raise ValidationError("Training or ideal table is empty")
+
+        try:
+            # Create empty placeholders for arrays (will be also filled later)
+            self.x_train = self.train_df.iloc[:, 0].values # Get the first column (X values) from training data
+            x_ideal = self.ideal_df.iloc[:, 0].values # Get the first column (X values) from ideal data
+            self.ideal_sort_idx = np.argsort(x_ideal) #  Sort the ideal X values and store the sort order (indices)
+            self.x_ideal_sorted = x_ideal[self.ideal_sort_idx] # Store the sorted ideal X values
+        except Exception as e:
+            raise ValidationError(f"Failed to prepare cached arrays: {e}")
 
     def load_test_csv(self, test_csv: str = 'Datasets/test.csv') -> None:
         """Load test CSV and optimize some things"""
-        df = pd.read_csv(test_csv) # Load test CSV file
+        from .exceptions import DataLoadError, ValidationError
+
+        try:
+            df = pd.read_csv(test_csv) # Load test CSV file
+        except FileNotFoundError:
+            raise DataLoadError(f"Test CSV file not found: {test_csv}")
+        except Exception as e:
+            raise DataLoadError(f"Failed to read test CSV {test_csv}: {e}")
+
+        if df.empty:
+            raise ValidationError(f"Test CSV file is empty: {test_csv}")
+
         # If columns are named 'x' and 'y', rename them to 'X' and 'Y' like the tables in the written assignment
         if 'x' in df.columns: #rename columns if needed
             df = df.rename(columns={'x': 'X', 'y': 'Y'}) #rename columns to match others

@@ -47,13 +47,23 @@ class IdealSelector(BaseComponent):
 
         2. Making new classes and import the existing functions from main.py
         """
+        from .exceptions import SelectionError
 
-        # connect to database via sqlalchemy
-        engine = create_engine(f'sqlite:///{self.loader.db_path}')
+        if k < 1:
+            raise ValueError("k must be at least 1")
 
-        # Read tables into DataFrames
-        df_train = pd.read_sql(f'SELECT * FROM {table_train}', con=engine)
-        df_ideal = pd.read_sql(f'SELECT * FROM {table_ideal}', con=engine)
+        try:
+            # connect to database via sqlalchemy
+            engine = create_engine(f'sqlite:///{self.loader.db_path}')
+
+            # Read tables into DataFrames
+            df_train = pd.read_sql(f'SELECT * FROM {table_train}', con=engine)
+            df_ideal = pd.read_sql(f'SELECT * FROM {table_ideal}', con=engine)
+        except Exception as e:
+            raise SelectionError(f"Failed to read tables: {e}")
+
+        if df_train.empty or df_ideal.empty:
+            raise SelectionError("Training or ideal table is empty")
 
         # Get column names
         x_train_col = df_train.columns[0]
