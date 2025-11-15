@@ -19,10 +19,17 @@ class TestIdealSelector:
         selector = IdealSelector(loader)
         top4 = selector.select_top_k(k=4)
         
-        # Just check we got 4 results
+        # Just a quick test that checks if we got 4 results
         assert len(top4) == 4
         
-        # Check each result is a tuple with (name, sse)
+        # Also we need tuples ( , ), we also check that 
+        """Something like that should be returned
+            [
+            ("Y3", 123.0),
+            ("Y18", 125.4),
+            ("Y52", 131.7),
+            ("Y7", 140.2)
+            ]"""
         for name, sse in top4:
             assert isinstance(name, str)
             assert isinstance(sse, (int, float))
@@ -38,7 +45,7 @@ class TestIdealSelector:
         top4 = selector.select_top_k(k=4)
         
         sses = [sse for _, sse in top4]
-        # Check sorted
+        # Check that SSEs are sorted right
         assert sses == sorted(sses)
 
     def test_k_validation(self):
@@ -51,3 +58,4 @@ class TestIdealSelector:
         
         with pytest.raises(ValueError):
             selector.select_top_k(k=0)
+            # k less than 1 should raise ValueError (API usage check)
