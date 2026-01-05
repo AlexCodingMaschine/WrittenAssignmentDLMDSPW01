@@ -1,5 +1,6 @@
 """
-Bare minimum unit tests for IdealSelector - just test core calculations work.
+Bare minimum unit tests for IdealSelector - test that the core 
+behaviors work.
 """
 import pytest
 from ooproject import IdealSelector

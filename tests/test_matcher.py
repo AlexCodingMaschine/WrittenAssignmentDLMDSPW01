@@ -1,5 +1,6 @@
 """
-Core calculation tests for Matcher
+Unit tests for Matcher core 
+calculations.
 """
 import pytest 
 from ooproject import Matcher

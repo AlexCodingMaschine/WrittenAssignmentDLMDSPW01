@@ -1,3 +1,9 @@
+"""
+Reads data  from Table1 to Table3 from the database.db SQLite database
+and generates a Bokeh plot visualizing the training data,
+the selected top-4 ideal functions, and the test points assigned to them
+"""
+
 from bokeh.plotting import figure, show, output_file
 from bokeh.models import Legend
 from sqlalchemy import create_engine
